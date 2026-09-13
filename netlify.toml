@@ -4,6 +4,8 @@
 
 [build.environment]
   VITE_BACKEND_URL = "https://sita-para-virada-de-saldo-1.onrender.com"
+  VITE_SUPABASE_URL = "https://ttmqtvkevlfxyqbtyrxx.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "sb_publishable_RkNLJ7Ob4zlrW29FXHy2lg_UQDu5nXJ"
 
 [[redirects]]
   from = "/*"
