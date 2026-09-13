@@ -11,7 +11,7 @@ import { supabase } from './lib/supabase';
 // Componentes fora do App() para evitar bug de re-mount
 // ─────────────────────────────────────────────────────────
 
-function LoginScreen({ onGoRegister }) {
+function LoginScreen({ onGoRegister, externalError = '' }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -21,9 +21,14 @@ function LoginScreen({ onGoRegister }) {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-    if (err) setError(err.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : err.message);
-    setIsLoading(false);
+    try {
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+      if (err) setError(err.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : err.message);
+    } catch (err) {
+      setError(err.message || 'Não foi possível entrar agora. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -37,9 +42,9 @@ function LoginScreen({ onGoRegister }) {
       </div>
 
       <div className="card">
-        {error && (
+        {(error || externalError) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fee2e2', color: 'var(--danger)', padding: '0.875rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
-            <AlertCircle size={16} /> {error}
+            <AlertCircle size={16} /> {error || externalError}
           </div>
         )}
         <form onSubmit={handleSubmit}>
@@ -75,7 +80,7 @@ function LoginScreen({ onGoRegister }) {
   );
 }
 
-function RegisterScreen({ onGoLogin }) {
+function RegisterScreen({ onGoLogin, externalError = '' }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -91,17 +96,22 @@ function RegisterScreen({ onGoLogin }) {
     if (password.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return; }
 
     setIsLoading(true);
-    const { error: err } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name } }
-    });
-    if (err) {
-      setError(err.message);
-    } else {
-      setSuccess(true);
+    try {
+      const { error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } }
+      });
+      if (err) {
+        setError(err.message);
+      } else {
+        setSuccess(true);
+      }
+    } catch (err) {
+      setError(err.message || 'Não foi possível criar a conta agora. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   if (success) {
@@ -126,9 +136,9 @@ function RegisterScreen({ onGoLogin }) {
       </div>
 
       <div className="card">
-        {error && (
+        {(error || externalError) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fee2e2', color: 'var(--danger)', padding: '0.875rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
-            <AlertCircle size={16} /> {error}
+            <AlertCircle size={16} /> {error || externalError}
           </div>
         )}
         <form onSubmit={handleSubmit}>
@@ -526,17 +536,46 @@ function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [appError, setAppError] = useState('');
 
   // ── Escuta mudanças de sessão do Supabase ──
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-    return () => subscription.unsubscribe();
+    let isMounted = true;
+    let subscription;
+
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (isMounted) setSession(currentSession);
+      } catch (error) {
+        if (isMounted) setAppError(error.message || 'Não foi possível verificar sua sessão.');
+      } finally {
+        if (isMounted) setAuthLoading(false);
+      }
+    };
+
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        if (isMounted) setSession(nextSession);
+      });
+      subscription = data?.subscription;
+    } catch (error) {
+      if (isMounted) {
+        queueMicrotask(() => {
+          if (!isMounted) return;
+          setAppError(error.message || 'Não foi possível iniciar a autenticação.');
+          setAuthLoading(false);
+        });
+      }
+    }
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const fetchBalance = useCallback(async () => {
@@ -545,36 +584,55 @@ function App() {
       if (data?.available !== undefined) setBalance(data.available);
     } catch (err) {
       console.error('Não foi possível atualizar o saldo:', err);
+      setAppError(err.message || 'Não foi possível carregar o saldo.');
     }
   }, []);
 
   const fetchTransactions = useCallback(async () => {
     if (!session) return;
     setIsLoadingHistory(true);
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-    if (!error) setTransactions(data || []);
-    setIsLoadingHistory(false);
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error) {
+      console.error('Não foi possível carregar o histórico:', error);
+      setTransactions([]);
+      setAppError(error.message || 'Não foi possível carregar o histórico.');
+    } finally {
+      setIsLoadingHistory(false);
+    }
   }, [session]);
 
   // ── Carrega saldo e histórico quando loga ──
   useEffect(() => {
-    if (session) Promise.all([fetchBalance(), fetchTransactions()]);
+    if (!session) return;
+
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) Promise.allSettled([fetchBalance(), fetchTransactions()]);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [session, fetchBalance, fetchTransactions]);
 
   const saveTransaction = async (txData) => {
     if (!session) return;
-    await supabase.from('transactions').insert({
+    const { error } = await supabase.from('transactions').insert({
       user_id: session.user.id,
       type: txData.type,
       amount: txData.amount,
       description: txData.desc,
       gateway_id: txData.transactionId || null,
     });
+    if (error) throw error;
     await fetchTransactions(); // recarrega do banco
   };
 
@@ -587,11 +645,16 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentTab('home');
-    setSubView('');
-    setTransactions([]);
-    setBalance(0);
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setCurrentTab('home');
+      setSubView('');
+      setTransactions([]);
+      setBalance(0);
+    } catch (error) {
+      setAppError(error.message || 'Não foi possível sair da conta.');
+    }
   };
 
   const handleAddFunds = async (e) => {
@@ -691,14 +754,19 @@ function App() {
 
   // ── Telas de autenticação ──
   if (!session) {
-    if (authScreen === 'register') return <RegisterScreen onGoLogin={() => setAuthScreen('login')} />;
-    return <LoginScreen onGoRegister={() => setAuthScreen('register')} />;
+    if (authScreen === 'register') return <RegisterScreen onGoLogin={() => setAuthScreen('login')} externalError={appError} />;
+    return <LoginScreen onGoRegister={() => setAuthScreen('register')} externalError={appError} />;
   }
 
   // ── App autenticado ──
   return (
     <>
       <div className="content-area">
+        {appError && (
+          <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fee2e2', color: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
+            <AlertCircle size={16} /> {appError}
+          </div>
+        )}
         {subView === '' ? (
           <>
             {currentTab === 'home' && <HomeTab balance={balance} formatCurrency={formatCurrency} setSubView={setSubView} setCurrentTab={setCurrentTab} />}
