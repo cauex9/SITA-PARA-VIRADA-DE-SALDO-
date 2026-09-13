@@ -9,10 +9,4 @@ if (!supabaseUrl || !supabaseKey) {
 	throw new Error('Supabase não configurado: defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY ou VITE_SUPABASE_PUBLISHABLE_KEY.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-	global: {
-		headers: {
-			apikey: supabaseKey
-		}
-	}
-});
+export const supabase = createClient(supabaseUrl, supabaseKey);

@@ -22,8 +22,12 @@ function LoginScreen({ onGoRegister, externalError = '' }) {
     setError('');
     setIsLoading(true);
     try {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      if (err) setError(err.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : err.message);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('Erro real do Supabase no login:', error);
+        setError(error.message || 'Erro ao fazer login.');
+        return;
+      }
     } catch (err) {
       setError(err.message || 'Não foi possível entrar agora. Tente novamente.');
     } finally {
