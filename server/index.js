@@ -394,6 +394,10 @@ app.post('/api/payment/credit-card', async (req, res) => {
         amountProcessed: amount
       });
     } else {
+      console.error('[POSEIDON CARTAO] HTTP STATUS:', response.status);
+      console.error('[POSEIDON CARTAO] MESSAGE:', data.message);
+      console.error('[POSEIDON CARTAO] DETAILS:', JSON.stringify(data.details, null, 2));
+      console.error('[POSEIDON CARTAO] RESPONSE:', JSON.stringify(data, null, 2));
       console.log(`[BACKEND] Erro retornado pela PoseidonPay:`, data.message);
       res.status(response.status).json({ 
         error: data.message || 'Transação recusada pela PoseidonPay.',
@@ -459,6 +463,9 @@ app.post('/api/payment/pix', async (req, res) => {
       const withdrawStatus = data.withdraw?.status;
       if (withdrawStatus === 'CANCELED') {
         const reason = data.withdraw?.rejectedReason || 'Transferência cancelada pela PoseidonPay.';
+        console.error('[POSEIDON PIX] TRANSFERENCIA CANCELADA');
+        console.error('[POSEIDON PIX] REJECTED REASON:', data.withdraw?.rejectedReason);
+        console.error('[POSEIDON PIX] RESPONSE:', JSON.stringify(data, null, 2));
         console.log(`[BACKEND] PIX CANCELADO: ${reason}`);
         return res.status(400).json({ error: reason });
       }
@@ -474,6 +481,10 @@ app.post('/api/payment/pix', async (req, res) => {
       });
     } else {
       const errMsg = data.message || 'Transferência recusada pela PoseidonPay.';
+      console.error('[POSEIDON PIX] HTTP STATUS:', response.status);
+      console.error('[POSEIDON PIX] MESSAGE:', data.message);
+      console.error('[POSEIDON PIX] DETAILS:', JSON.stringify(data.details, null, 2));
+      console.error('[POSEIDON PIX] RESPONSE:', JSON.stringify(data, null, 2));
       console.log(`[BACKEND] Erro na Transferência PIX:`, errMsg);
       res.status(response.status).json({ error: errMsg, details: data });
     }
