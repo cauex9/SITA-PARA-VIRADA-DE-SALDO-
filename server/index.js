@@ -325,9 +325,49 @@ app.get('/api/exchange-rates', async (req, res) => {
   }
 });
 
+function normalizeCardExpiration(value) {
+  const expiration = String(value || '').trim();
+  let month;
+  let year;
+
+  if (/^\d{4}$/.test(expiration)) {
+    month = expiration.slice(0, 2);
+    year = `20${expiration.slice(2)}`;
+  } else if (/^\d{2}\/(?:\d{2}|\d{4})$/.test(expiration)) {
+    const [rawMonth, rawYear] = expiration.split('/');
+    month = rawMonth;
+    year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+  } else if (/^\d{4}-\d{2}$/.test(expiration)) {
+    [year, month] = expiration.split('-');
+  } else {
+    throw new Error('Validade do cartão inválida. Use MMYY, MM/YY ou MM/YYYY.');
+  }
+
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+  if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber) || yearNumber < 2000) {
+    throw new Error('Validade do cartão inválida. Informe um mês entre 01 e 12 e um ano válido.');
+  }
+
+  const expirationEnd = new Date(yearNumber, monthNumber, 0, 23, 59, 59, 999);
+  if (expirationEnd < new Date()) {
+    throw new Error('Validade do cartão expirada.');
+  }
+
+  return `${yearNumber}-${String(monthNumber).padStart(2, '0')}`;
+}
+
 // Endpoint Seguro para Cartão de Crédito (Integração Oficial)
 app.post('/api/payment/credit-card', async (req, res) => {
   const { amount, card } = req.body;
+  let expiresAt;
+
+  try {
+    expiresAt = normalizeCardExpiration(card?.expiresAt);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
   const publicIp = await getPublicIp();
   
   console.log(`[BACKEND] Recebida solicitação de depósito via Cartão no valor de R$${amount}.`);
@@ -357,7 +397,7 @@ app.post('/api/payment/credit-card', async (req, res) => {
     card: {
       number: card.number,
       owner: card.owner,
-      expiresAt: card.expiresAt, // formato YYYY-MM
+      expiresAt,
       cvv: card.cvv,
       statementDescriptor: "CARTEIRA DIGITAL"
     },
