@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: virada-de-saldo-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: POSEIDO_CLIENT_ID
+        sync: false
+      - key: POSEIDO_CLIENT_SECRET
+        sync: false
+      - key: GATEWAY_WEBHOOK_TOKEN
+        sync: false
+      - key: WEBHOOK_CALLBACK_URL
+        sync: false
