@@ -6,8 +6,23 @@
  * com a Poseido usando a Chave Privada segura.
  */
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
-  || (import.meta.env.DEV ? 'http://localhost:3000' : '');
+const DEFAULT_BACKEND_URL = 'https://sita-para-virada-de-saldo-1.onrender.com';
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL
+  || (import.meta.env.DEV ? 'http://localhost:3000' : DEFAULT_BACKEND_URL)).replace(/\/$/, '');
+
+async function requestJson(url, options) {
+  const response = await fetch(url, options);
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await response.json()
+    : null;
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Servidor respondeu com HTTP ${response.status}.`);
+  }
+
+  return data;
+}
 
 export const poseidoService = {
   /**
@@ -16,10 +31,7 @@ export const poseidoService = {
    */
   getBalance: async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/balance`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao buscar saldo');
-      return data;
+      return await requestJson(`${BACKEND_URL}/api/balance`);
     } catch (error) {
       throw new Error(error.message || 'Falha ao conectar com o servidor seguro.');
     }
@@ -34,10 +46,7 @@ export const poseidoService = {
    */
   getExchangeRate: async (from, to, amount) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/exchange-rates?from=${from}&to=${to}&amount=${amount}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao buscar câmbio');
-      return data;
+      return await requestJson(`${BACKEND_URL}/api/exchange-rates?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&amount=${encodeURIComponent(amount)}`);
     } catch (error) {
       throw new Error(error.message || 'Falha ao conectar com o servidor seguro.');
     }
@@ -50,21 +59,13 @@ export const poseidoService = {
    */
   processCreditCard: async (paymentData) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/payment/credit-card`, {
+      return await requestJson(`${BACKEND_URL}/api/payment/credit-card`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(paymentData)
       });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro na transação');
-      }
-      
-      return data;
     } catch (error) {
       throw new Error(error.message || 'Falha ao conectar com o servidor seguro.');
     }
@@ -77,14 +78,11 @@ export const poseidoService = {
    */
   processPixWithdrawal: async (pixData) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/payment/pix`, {
+      return await requestJson(`${BACKEND_URL}/api/payment/pix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pixData)
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro na transação PIX');
-      return data;
     } catch (error) {
       throw new Error(error.message || 'Falha ao conectar com o servidor seguro.');
     }

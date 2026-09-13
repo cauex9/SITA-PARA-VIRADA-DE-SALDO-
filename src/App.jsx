@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Wallet, Plus, ArrowUpRight, ArrowLeft, CreditCard,
   CheckCircle2, History, User, LogOut, Home, Lock, Mail,
@@ -71,7 +71,6 @@ function LoginScreen({ onGoRegister }) {
           </button>
         </div>
       </div>
-      <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -158,7 +157,6 @@ function RegisterScreen({ onGoLogin }) {
           <button id="btn-voltar-login" type="button" className="btn btn-secondary" onClick={onGoLogin}>Fazer Login</button>
         </div>
       </div>
-      <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -204,7 +202,6 @@ function HistoryTab({ transactions, isLoadingHistory, formatCurrency, formatDate
       <div className="animate-fade-in" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
         <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
         <p>Carregando histórico...</p>
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -319,7 +316,6 @@ function AddFundsSubView({ isLoading, apiError, onSubmit, state, handlers }) {
           </button>
         </form>
       </div>
-      <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -543,24 +539,16 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── Carrega saldo e histórico quando loga ──
-  useEffect(() => {
-    if (session) {
-      fetchBalance();
-      fetchTransactions();
-    }
-  }, [session]);
-
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     try {
       const data = await poseidoService.getBalance();
       if (data?.available !== undefined) setBalance(data.available);
     } catch (err) {
       console.error('Não foi possível atualizar o saldo:', err);
     }
-  };
+  }, []);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!session) return;
     setIsLoadingHistory(true);
     const { data, error } = await supabase
@@ -571,7 +559,12 @@ function App() {
 
     if (!error) setTransactions(data || []);
     setIsLoadingHistory(false);
-  };
+  }, [session]);
+
+  // ── Carrega saldo e histórico quando loga ──
+  useEffect(() => {
+    if (session) Promise.all([fetchBalance(), fetchTransactions()]);
+  }, [session, fetchBalance, fetchTransactions]);
 
   const saveTransaction = async (txData) => {
     if (!session) return;
@@ -692,7 +685,6 @@ function App() {
     return (
       <div className="content-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }

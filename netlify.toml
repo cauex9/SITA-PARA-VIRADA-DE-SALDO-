@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  VITE_BACKEND_URL = "https://sita-para-virada-de-saldo-1.onrender.com"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
