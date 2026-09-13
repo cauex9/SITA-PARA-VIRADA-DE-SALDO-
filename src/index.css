@@ -50,6 +50,14 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.app-shell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
 /* Container for scrollable content, leaving space for bottom nav */
 .content-area {
   flex: 1;

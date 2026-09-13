@@ -227,7 +227,7 @@ function HistoryTab({ transactions, isLoadingHistory, formatCurrency, formatDate
       ) : (
         <div className="card" style={{ padding: '0.5rem' }}>
           {transactions.map((tx, index) => (
-            <div key={tx.id} style={{
+            <div key={tx.id || tx.gateway_id || `${tx.created_at}-${tx.type}-${tx.amount}`} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '1rem',
               borderBottom: index !== transactions.length - 1 ? '1px solid var(--border-color)' : 'none'
@@ -746,21 +746,28 @@ function App() {
   // ── Tela de carregamento enquanto verifica sessão ──
   if (authLoading) {
     return (
-      <div className="content-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+      <div className="app-shell">
+        <div className="content-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Loader2 size={40} color="var(--primary)" style={{ animation: 'spin 1s linear infinite' }} />
+        </div>
       </div>
     );
   }
 
   // ── Telas de autenticação ──
   if (!session) {
-    if (authScreen === 'register') return <RegisterScreen onGoLogin={() => setAuthScreen('login')} externalError={appError} />;
-    return <LoginScreen onGoRegister={() => setAuthScreen('register')} externalError={appError} />;
+    return (
+      <div className="app-shell">
+        {authScreen === 'register'
+          ? <RegisterScreen onGoLogin={() => setAuthScreen('login')} externalError={appError} />
+          : <LoginScreen onGoRegister={() => setAuthScreen('register')} externalError={appError} />}
+      </div>
+    );
   }
 
   // ── App autenticado ──
   return (
-    <>
+    <div className="app-shell">
       <div className="content-area">
         {appError && (
           <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fee2e2', color: 'var(--danger)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.875rem' }}>
@@ -808,7 +815,7 @@ function App() {
         )}
       </div>
       {subView === '' && <BottomNav currentTab={currentTab} setCurrentTab={setCurrentTab} setSubView={setSubView} />}
-    </>
+    </div>
   );
 }
 
