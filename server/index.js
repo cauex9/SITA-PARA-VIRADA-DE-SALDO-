@@ -268,6 +268,22 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/api/outbound-ip', async (req, res) => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+
+    if (!response.ok || !data.ip) {
+      return res.status(502).json({ error: 'Não foi possível consultar o IP público de saída.' });
+    }
+
+    return res.json({ ip: data.ip });
+  } catch (error) {
+    console.error('[BACKEND] Falha ao consultar IP público de saída:', error.message);
+    return res.status(502).json({ error: 'Não foi possível consultar o IP público de saída.' });
+  }
+});
+
 // Endpoint Seguro para consultar o Saldo
 app.get('/api/balance', async (req, res) => {
   console.log(`[BACKEND] Consultando saldo oficial na PoseidonPay...`);
